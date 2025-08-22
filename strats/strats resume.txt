@@ -1,0 +1,60 @@
+Mean Reversion Trading Strategy:
+	Assumption: Prices tend to “revert” back toward their average after deviating too much.
+	The strategy uses Bollinger Bands as the tool:
+		SMA (Simple Moving Average): the rolling average of the last N closes (default 20).
+		StdDev (Standard Deviation): the volatility measure for that same window
+		Upper Band: SMA + (num_std × StdDev).
+		Lower Band: SMA – (num_std × StdDev).
+		These bands show the “normal range” of price movement around the average.
+	The Trading Signals:
+	Buy (long): when the closing price drops below the lower band
+	→ asset is considered “oversold” → expect a bounce upward.
+	Sell (short): when the closing price rises above the upper band
+	→ asset is considered “overbought” → expect a drop downward.
+	Flat (0): when the price is between the bands → no trade.
+	In short: this strategy tries to buy dips (below the lower band) and sell rallies (above the upper band), betting that prices will snap back toward their moving average.
+	
+Statistical Arbitrage (Pairs Trading)
+	Assumption: Two assets that move together (cointegration) can diverge temporarily. The strategy bets that the spread will revert back to its mean.
+		Spread construction: Run a rolling regression Asset1 ~ Asset2 to estimate hedge ratio (alpha + beta). Spread = Asset1 – (alpha + beta × Asset2).
+		Z-score: Normalize the spread by its rolling mean and std to measure how “far” it is from equilibrium.
+		Trading rules:
+		Enter long spread (buy Asset1, short Asset2) when Z ≤ –entry threshold.
+		Enter short spread (short Asset1, long Asset2) when Z ≥ +entry threshold.
+		Exit when |Z| ≤ exit threshold (spread mean-reverts) or after max holding time.
+		Execution: Signals are acted on the next bar (to avoid look-ahead).
+	Returns: Strategy PnL = position × (r_y – β × r_x).
+	Strengths: Works when assets are truly cointegrated, robust in sideways markets.
+	Weaknesses: Fails if the relationship breaks down (structural divergence).
+	
+Trend-Following (MA Crossover)
+	Assumption: Capture persistent price trends by comparing short-term momentum with long-term direction.
+	Signal engine:
+		Compute two moving averages (short vs long).
+		Golden Cross: short MA crosses above long MA → go long.
+		Death Cross: short MA crosses below long MA → exit (or go short if enabled).
+		Execution: Enter/exit on the next bar to avoid look-ahead bias.
+		Return calculation: Strategy return = position × market return. Costs deducted when position changes.
+	Strengths: Simple, robust, and effective in trending markets.
+	Weaknesses: Lags on trend reversals, suffers whipsaws in sideways markets, sensitive to parameters.
+	SMA vs EMA:
+	SMA = smoother, slower response, fewer trades.
+	EMA = faster response, earlier entries/exits, but noisier.	
+	
+Market Making (Quote & Fill Simulation)
+	Assumption: Continuously post bid/ask quotes around the mid price to buy low (bid) and sell high (ask), profiting from the spread while managing inventory risk.
+	Quoting:
+	Base half-spread = spread_bps / 1e4.
+	Optional inventory skew shifts the quoting mid when you’re long/short to encourage rebalancing (sell more when long, buy more when short).
+	Fills:
+		A buy occurs if the current mid ≤ previous bar’s bid quote.
+		A sell occurs if the current mid ≥ previous bar’s ask quote.
+		Optional setting allows both sides to fill in the same bar.
+		Risk control: Hard inventory limits (±limit). Quotes skew with inventory to reduce carry risk.
+	PnL:
+		Cash updated on fills (price × qty ± fees/rebates).
+		Equity = cash + inventory × mid (mark-to-market).
+		Fees modeled per leg via maker_fee_bps (negative → rebate).
+	Metrics: number of trades, turnover, peak inventory usage, final equity, final inventory.
+	Strengths: Simple, transparent, highlights spread capture and inventory dynamics.
+	Weaknesses: Ignores queue position/partial fills, latency, tick size, adverse selection; sensitive to spread and fee assumptions.
