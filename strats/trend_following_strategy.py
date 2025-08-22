@@ -1,6 +1,3 @@
-import pandas as pd
-import numpy as np
-
 def trend_following_strategy(data, short_window=50, long_window=200):
     """
     Implementa uma estratégia básica de Seguimento de Tendências (cruzamento de médias móveis).
@@ -23,13 +20,3 @@ def trend_following_strategy(data, short_window=50, long_window=200):
     data.loc[data['SMA_Short'] < data['SMA_Long'], 'Signal'] = -1
 
     return data
-
-if __name__ == '__main__':
-    # Exemplo de uso com dados fictícios
-    dates = pd.to_datetime(pd.date_range(start='2023-01-01', periods=300))
-    prices = np.random.normal(loc=100, scale=5, size=300).cumsum() + 100
-    sample_data = pd.DataFrame({'Date': dates, 'Close': prices})
-    sample_data.set_index('Date', inplace=True)
-
-    strategy_results = trend_following_strategy(sample_data.copy())
-    print(strategy_results[['Close', 'SMA_Short', 'SMA_Long', 'Signal']].tail())

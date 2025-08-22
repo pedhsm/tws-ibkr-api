@@ -44,16 +44,5 @@ def statistical_arbitrage_strategy(data, window=60, entry_threshold=2, exit_thre
 
     return data
 
-if __name__ == '__main__':
-    # Exemplo de uso com dados fictícios
-    dates = pd.to_datetime(pd.date_range(start='2023-01-01', periods=200))
-    # Ativos correlacionados com algum ruído
-    asset2_prices = np.random.normal(loc=50, scale=2, size=200).cumsum() + 100
-    asset1_prices = asset2_prices * 1.05 + np.random.normal(loc=0, scale=1, size=200)
 
-    sample_data = pd.DataFrame({"Date": dates, "Asset1": asset1_prices, "Asset2": asset2_prices})
-    sample_data.set_index("Date", inplace=True)
-
-    strategy_results = statistical_arbitrage_strategy(sample_data.copy())
-    print(strategy_results[["Asset1", "Asset2", "Spread", "ZScore", "Signal"]].tail())
 
