@@ -1,7 +1,7 @@
 import time
 import threading
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, List
 import pandas as pd 
 import logging
 import numpy as np 
@@ -43,6 +43,26 @@ class TradingApp(EWrapper, EClient):
         self._cd_event = threading.Event()
         self._cd_results: Dict[int, List] = {}
         self._historical_data_events: Dict[int, threading.Event] = {}
+
+    # -------------------- CONNECTION --------------------
+    def nextValidId(self, orderId: int):
+        logging.info(f"nextValidId={orderId} (connected)")
+        self._connected.set()
+
+    def connect_and_run(self, host: str, port: int, clientId: int):
+        self.connect(host, port, clientId)
+        thread = threading.Thread(target=self.run)
+        thread.start()
+        self._connected.wait(timeout=10) # Wait for connection to be established
+        if not self._connected.is_set():
+            logging.error("Failed to connect to IB TWS/Gateway.")
+            raise ConnectionError("Could not connect to IB TWS/Gateway.")
+
+    def disconnect(self):
+        # Corrected: Call the disconnect method from the parent class (EClient)
+        super().disconnect()
+        logging.info("Disconnected from IB TWS/Gateway.")
+
 
     def get_historical_data(self,reqId:int, contract: Contract) -> pd.DataFrame:
         self.data[reqId] = pd.DataFrame(columns=["time","high","low","close"])
