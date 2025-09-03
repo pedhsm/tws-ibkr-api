@@ -1,3 +1,4 @@
 *.ipynb
 !docs/*.ipynb   # but keep notebooks inside docs folder, if you want
-!docs/*.csv
+*.csv
+*.log

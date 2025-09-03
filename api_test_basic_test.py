@@ -5,6 +5,7 @@ from typing import Dict, Optional
 import pandas as pd 
 import logging
 import numpy as np 
+
 # =========================
 # Logging config (file + terminal)
 # =========================
@@ -30,11 +31,18 @@ from ibapi.contract import Contract
 from ibapi.order import Order
 from ibapi.common import BarData
 
-class TradingApp(EClient, EWrapper):
-    def __init__(self):
-        EClient.__init__(self,self)
-        self.data: Dict[int,pd.DataFrame] = {}
+class TradingApp(EWrapper, EClient):
+    def __init__(self, apply_us_stock_volume_x100: bool = False):
+        EClient.__init__(self, self)
+        self.data: Dict[int, pd.DataFrame] = {}
+        self._done = threading.Event()
+        self.apply_us_stock_volume_x100 = apply_us_stock_volume_x100
 
+        # signals/buffers
+        self._connected = threading.Event()
+        self._cd_event = threading.Event()
+        self._cd_results: Dict[int, List] = {}
+        self._historical_data_events: Dict[int, threading.Event] = {}
 
     def get_historical_data(self,reqId:int, contract: Contract) -> pd.DataFrame:
         self.data[reqId] = pd.DataFrame(columns=["time","high","low","close"])
