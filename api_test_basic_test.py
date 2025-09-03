@@ -63,33 +63,66 @@ class TradingApp(EWrapper, EClient):
         super().disconnect()
         logging.info("Disconnected from IB TWS/Gateway.")
 
+# -------------------- HISTORICAL DATA --------------------
+    def get_historical_data(self, reqId: int, contract: Contract, durationStr: str = "1 D", barSizeSetting: str = "1 min", whatToShow: str = "TRADES", endDateTime:str = None) -> pd.DataFrame:
+        if endDateTime is None:
+            endDateTime = datetime.now().strftime("%Y%m%d %H:%M:%S US/Eastern")
+        self.data[reqId] = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+        self.data[reqId].set_index("time", inplace=True)
+        self._historical_data_events[reqId] = threading.Event()
 
-    def get_historical_data(self,reqId:int, contract: Contract) -> pd.DataFrame:
-        self.data[reqId] = pd.DataFrame(columns=["time","high","low","close"])
-        self.data[reqId].set_index("time",inplace=True)
         self.reqHistoricalData(
             reqId=reqId,
             contract=contract,
-            endDateTime="",
-            durationStr="1 D",
-            barSizeSetting="1 min",
-            whatToShow="MIDPOINT", #It's the avg between the bid(highest value sold) and the ask(lowest value sold)
-            useRTH=0, #RTH = Regular Trading Hours
+            durationStr=durationStr,
+            barSizeSetting=barSizeSetting,
+            whatToShow=whatToShow,
+            endDateTime=endDateTime,             # "" = now
+            useRTH=0,
             formatDate=2,
             keepUpToDate=False,
             chartOptions=[],
         )
-        time.sleep(3)
+
+        # Wait for historical data to be received
+        self._historical_data_events[reqId].wait(timeout=30) # Increased timeout
+        if not self._historical_data_events[reqId].is_set():
+            logging.warning(f"Timeout waiting for historical data for reqId {reqId}")
+
         return self.data[reqId]
-    
-    def historicalData(self, reqId:int, bar: BarData) -> None:
+
+    def historicalData(self, reqId: int, bar: BarData) -> None:
         df = self.data[reqId]
-        df.loc[
-            pd.to_datetime(bar.date, unit="s"),
-            ["high","low","close"]
-        ] = [bar.high, bar.low, bar.close]
-        df = df.astype(float)
-        self.data[reqId] = df
+        # Try to read it as a timestamp string w Hour
+        ts = pd.to_datetime(bar.date, format="%Y%m%d %H:%M:%S", errors="coerce")
+        if pd.isna(ts):
+            # Try to read it as a timestamp string w Data (only)
+            ts = pd.to_datetime(bar.date, format="%Y%m%d", errors="coerce")
+        # If it is numerical (epoch seconds)
+        if pd.isna(ts):
+            try:
+                ts = pd.to_datetime(int(bar.date), unit="s", utc=True, errors="coerce")
+            except ValueError:
+                pass  # It is Nat if it's not a string or epoch 
+
+        vol = bar.volume * (100 if self.apply_us_stock_volume_x100 else 1)
+        df.loc[ts, ["open", "high", "low", "close", "volume"]] = [
+            bar.open, bar.high, bar.low, bar.close, vol
+        ]
+
+        self.data[reqId] = df.astype({
+            "open": "float64",
+            "high": "float64",
+            "low": "float64",
+            "close": "float64",
+            "volume": "float64",
+        })
+
+        
+    def historicalDataEnd(self, reqId: int, start: str, end: str):
+        logging.info(f"Historical data for reqId {reqId} ended. Start: {start}, End: {end}")
+        if reqId in self._historical_data_events:
+            self._historical_data_events[reqId].set()
 
     @staticmethod
     def get_stock_contract(symbol:str) -> Contract:
